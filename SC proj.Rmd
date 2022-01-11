@@ -1,0 +1,125 @@
+---
+title: "Absenteeism at Company"
+author: "Lee Zi Jie"
+date: "12/27/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(readr)
+```
+
+
+```{r , include = FALSE}
+absent <- read_csv("../data/dados.csv")
+absent <- absent %>% 
+  filter(`Disciplinary failure` != 1) %>%
+  group_by(ID) %>%
+  mutate(`Day of the week` = recode(`Day of the week`, `2` = "Mon", `3` = "Tue", `4` = "Wed", `5` = "Thu", `6` = "Fri"), ID = as.character(ID), `Day of the week` = factor(`Day of the week`, levels = c("Mon", "Tue", "Wed", "Thu", "Fri")), Seasons = recode(Seasons, `1` = "Summer", `2` = "Autumn", `3` = "Winter", `4` = "Spring"))
+
+nAbsent <- absent %>% select(ID) %>%
+  unique() %>%
+  lengths()
+
+```
+
+The dataset `dados.csv` shows the absenteeism of `r nAbsent` workers in a company. Each row corresponds to an absence of a worker of a unique `ID` with his/her demographic information.
+
+
+```{r , fig.cap = "Accumulated absence times for each worker", echo = FALSE}
+
+
+absent %>%
+  group_by(ID) %>%
+  mutate(total_hours = sum(`Absenteeism time in hours`)) %>%
+  arrange(desc(`Absenteeism time in hours`)) %>%
+  ggplot() +
+  geom_col(aes(x = reorder(ID, total_hours), y = `Absenteeism time in hours`, fill = `Absenteeism time in hours`), col = "white") +
+  coord_flip() +
+  labs(title = "Accumulated and Individual Absence Times", x = "Worker ID", y = "Hours") +
+  scale_fill_continuous(name = "Time (hrs)")
+
+absent %>%
+  group_by(ID) %>%
+  summarise(total_hours = sum(`Absenteeism time in hours`)) %>%
+  arrange(desc(total_hours)) %>%
+  .[1,] -> most_absent
+
+absent %>%
+  group_by(ID) %>%
+  summarise(total_hours = sum(`Absenteeism time in hours`)) %>%
+  arrange(desc(total_hours)) %>%
+  .$total_hours %>%
+  mean() -> meanhours
+
+absent %>%
+  group_by(ID) %>%
+  mutate(total_hours = sum(`Absenteeism time in hours`)) %>%
+  filter(total_hours == 0) %>%
+  .$ID -> no_absent
+
+absent %>%
+  group_by(ID) %>%
+  mutate(total_hours = sum(`Absenteeism time in hours`)) %>%
+  filter(ID == 3) %>%
+  .$`Absenteeism time in hours` %>%
+  max() -> most_absent_max
+
+absent %>%
+  filter(ID == 3) %>%
+  count() %>%
+  .$n -> most_absent_times
+  
+
+```
+
+From Figure 1, there is a huge disparity of accumulated absent times between different workers, with worker `r most_absent$ID` clocking a total of `r most_absent$total_hours` hours while workers `r no_absent` have approximately 0 hours of absence. The mean absent times for the workers is about `r round(meanhours, 0)` hours.
+
+Workers 13, 11, 28, 36 and 9 have particularly long absent times from an absence event that last for more than 100 hours, which has made them one of the few workers having the most absent times. In contrast, although worker `r most_absent$ID` has a maximum of `r most_absent_max` hours for all his/her absence events, he/she has accumulated a total of `r most_absent_times` absent events, which explains for the greatest accumulated absent hours in the company.
+
+This information is of value to the Human Resource Department to find out the workers who are constantly absent from work and understand the reasons for their absence. Recommendations could then be made to each group of workers to reduce their absent rates.
+
+
+```{r , fig.cap = "Absenteeism patterns for each worker over the days of the week", echo = FALSE}
+
+ggplot(mutate(absent, ID = as.numeric(ID)), aes(x = `Day of the week`)) +
+  geom_bar() +
+  facet_wrap(~ID) +
+  labs(y = "Number of times absent", title = "Absent Frequency for each Worker over the Week")
+
+```
+
+Figure 2 gives us an idea of any patterns of absence of the workers. Most workers have a constant number of absents over the week. However, worker 20 has been absent a significant number of times during Friday. On the other hand, worker 28's absence patterns over the week seems to follow a normal distribution with the peak absent day on Wednesday.
+
+For the worker with the most number of absent hours (worker 3), it is worth noting that the worker is usually absent more during odd days of the week.
+
+Such data could give us an indication of some underlying reasons behind the workers' absence through the week as some workers tend to be absent more on certain days of the week.
+
+
+
+
+
+
+
+
+
+
+```{r , fig.cap = "Proportion of Absence in a week during different seasons", echo = FALSE}
+
+absence_props <- absent %>% group_by(Seasons, `Day of the week`) %>%
+  count() %>%
+  group_by(Seasons) %>%
+  mutate(prop = n/sum(n)) %>%
+  ungroup()
+
+ggplot(absence_props, aes(x = factor(Seasons, levels = c("Winter", "Spring", "Summer", "Autumn")), y = prop, fill = `Day of the week`)) +
+  geom_col() +
+  geom_text(aes(label = round(prop,2)), position = position_stack(vjust = 0.5)) +
+  labs(x = "Season", y = "Proportion", title = "Proportion of Absences by Season and Day")
+
+```
+
+
+After understanding the absent times for each individual worker, Figure 3 below aims to find out the weekly absent rates of workers throughout the different seasons. The absent rates of workers were somewhat equally spread during Autumn and Spring. However, absent rates of workers were greater on Monday and Tuesday during Summer and on Monday, Wednesday and Friday during Winter. 
